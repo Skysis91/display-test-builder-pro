@@ -2,7 +2,7 @@
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, FileText, Eye } from "lucide-react";
 
 const Index = () => {
   const { user, isLoading } = useAuth();
