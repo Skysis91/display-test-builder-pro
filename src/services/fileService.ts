@@ -5,6 +5,7 @@ import { CreativeFile, GeneratedTest } from '@/types';
 // For this demo, we'll use localStorage to simulate persistence
 
 const TESTS_STORAGE_KEY = 'display_tests';
+const UPLOADS_DIRECTORY = '/uploads/'; // This would be a server directory in production
 
 // Generate HTML for a test
 export const generateTestHtml = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>): string => {
