@@ -55,8 +55,7 @@ export const generateTestHtml = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>)
 
   // Add each creative to the HTML
   test.creatives.forEach((creative) => {
-    // Embed the image directly in the HTML file as a base64 data URL
-    // This allows the HTML file to be opened offline without external image references
+    // Use the preview data directly from the creative
     const creativeData = creative.preview;
     
     htmlContent += `
@@ -95,8 +94,16 @@ export const saveTest = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>): Genera
   // In a real app, we would send this to a server
   // For this demo, we'll save to localStorage
   
-  // Generate HTML content
-  const htmlContent = generateTestHtml(test);
+  // Make sure to preserve the original preview data for each creative
+  const creativesWithPreviewData = test.creatives.map(creative => ({
+    ...creative
+  }));
+  
+  // Generate HTML content with the preserved preview data
+  const htmlContent = generateTestHtml({
+    ...test,
+    creatives: creativesWithPreviewData
+  });
   
   // Create a blob URL for preview (in a real app, this would be a file path)
   const blob = new Blob([htmlContent], { type: 'text/html' });
