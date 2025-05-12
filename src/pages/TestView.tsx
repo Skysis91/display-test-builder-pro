@@ -4,8 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import DashboardLayout from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { getTestById, downloadTestHtml } from '@/services/fileService';
-import { ArrowLeft, FileText, Download, Eye } from 'lucide-react';
+import { getTestById, downloadTestHtml, downloadTestZip } from '@/services/fileService';
+import { ArrowLeft, FileText, Download, Eye, Archive } from 'lucide-react';
 import { GeneratedTest } from '@/types';
 import { Separator } from '@/components/ui/separator';
 
@@ -14,6 +14,7 @@ const TestView = () => {
   const navigate = useNavigate();
   const [test, setTest] = useState<GeneratedTest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -38,6 +39,21 @@ const TestView = () => {
     if (test) {
       downloadTestHtml(test);
       toast.success('HTML file downloaded');
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    if (!test) return;
+    
+    setDownloadingZip(true);
+    try {
+      await downloadTestZip(test);
+      toast.success('ZIP file with HTML and images downloaded');
+    } catch (error) {
+      console.error('Failed to download ZIP:', error);
+      toast.error('Failed to download ZIP file');
+    } finally {
+      setDownloadingZip(false);
     }
   };
 
@@ -82,9 +98,17 @@ const TestView = () => {
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={handleDownload}>
             <Download className="h-4 w-4 mr-1" /> Download HTML
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleDownloadZip} 
+            disabled={downloadingZip}
+          >
+            <Archive className="h-4 w-4 mr-1" /> 
+            {downloadingZip ? 'Preparing ZIP...' : 'Download ZIP'}
           </Button>
           <a
             href={test.previewUrl}

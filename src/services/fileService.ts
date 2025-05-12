@@ -1,5 +1,6 @@
-
 import { CreativeFile, GeneratedTest } from '@/types';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 // In a real app, this would interact with a backend
 // For this demo, we'll use localStorage to simulate persistence
@@ -8,7 +9,7 @@ const TESTS_STORAGE_KEY = 'display_tests';
 const UPLOADS_DIRECTORY = '/uploads/'; // This would be a server directory in production
 
 // Generate HTML for a test
-export const generateTestHtml = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>): string => {
+export const generateTestHtml = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>, useRelativeImagePaths = false): string => {
   const timestamp = new Date(test.timestamp).toISOString().replace(/[:.]/g, '-');
   
   // Create HTML content from the test data
@@ -54,15 +55,18 @@ export const generateTestHtml = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>)
 `;
 
   // Add each creative to the HTML
-  test.creatives.forEach((creative) => {
-    // Use the preview data directly from the creative
-    const creativeData = creative.preview;
+  test.creatives.forEach((creative, index) => {
+    // For ZIP export, use relative path to the images folder
+    // Otherwise use the preview data URL directly
+    const imageSrc = useRelativeImagePaths 
+      ? `images/${getImageFileName(creative, index)}` 
+      : creative.preview;
     
     htmlContent += `
     <div>
       <a href="${creative.clickUrl}" target="_blank" class="ad">
         <img 
-          src="${creativeData}" 
+          src="${imageSrc}" 
           alt="" 
           data-imp1="${creative.impressionUrl1}" 
           data-imp2="${creative.impressionUrl2}"
@@ -87,6 +91,13 @@ export const generateTestHtml = (test: Omit<GeneratedTest, 'id' | 'previewUrl'>)
 `;
 
   return htmlContent;
+};
+
+// Helper function to get a filename for an image in the zip
+const getImageFileName = (creative: CreativeFile, index: number): string => {
+  // Get file extension from the original file name
+  const originalExt = creative.file.name.split('.').pop() || 'jpg';
+  return `creative-${index + 1}.${originalExt}`;
 };
 
 // Save a test to storage
@@ -181,4 +192,55 @@ export const downloadTestHtml = (test: GeneratedTest): void => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 100);
+};
+
+// Download ZIP with HTML and images for a test
+export const downloadTestZip = async (test: GeneratedTest): Promise<void> => {
+  try {
+    // Create a new ZIP file
+    const zip = new JSZip();
+    
+    // Generate HTML that uses relative paths to images folder
+    const htmlContent = generateTestHtml({
+      name: test.name,
+      timestamp: test.timestamp,
+      creativeCount: test.creativeCount,
+      author: test.author,
+      creatives: test.creatives,
+    }, true); // true means use relative paths
+    
+    // Add index.html to the root of the ZIP
+    zip.file("index.html", htmlContent);
+    
+    // Create images folder
+    const imagesFolder = zip.folder("images");
+    if (!imagesFolder) {
+      throw new Error("Failed to create images folder in ZIP");
+    }
+    
+    // Add each creative image to the images folder
+    await Promise.all(test.creatives.map(async (creative, index) => {
+      try {
+        // Fetch the image data from the data URL or URL
+        const response = await fetch(creative.preview);
+        const blob = await response.blob();
+        
+        // Add the image to the ZIP file with a consistent filename
+        const fileName = getImageFileName(creative, index);
+        imagesFolder.file(fileName, blob);
+      } catch (error) {
+        console.error(`Failed to add image ${index} to ZIP:`, error);
+        throw error;
+      }
+    }));
+    
+    // Generate the ZIP file
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    
+    // Save the ZIP file
+    saveAs(zipBlob, `test_${test.name.toLowerCase().replace(/\s+/g, '_')}.zip`);
+  } catch (error) {
+    console.error("Failed to generate ZIP file:", error);
+    throw error;
+  }
 };
